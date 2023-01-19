@@ -88,6 +88,7 @@ fn main() -> Result<(), StreamerError> {
         print!("\rStreaming pts={}", pts);
         let _ = std::io::stdout().flush();
 
+        tcp_stream.write(&[0u8; 4])?;
         tcp_stream.write(&header)?;
 
         file_reader.set_limit(size as u64);
