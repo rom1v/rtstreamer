@@ -97,6 +97,6 @@ fn main() -> Result<(), StreamerError> {
             break;
         }
     }
-    println!("\rComplete");
+    println!("\nComplete");
     Ok(())
 }
