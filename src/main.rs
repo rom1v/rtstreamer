@@ -52,49 +52,55 @@ fn main() -> Result<(), StreamerError> {
     // The most significant bits of the PTS are used for packet flags:
     //
     //  byte 7   byte 6   byte 5   byte 4   byte 3   byte 2   byte 1   byte 0
-    // CK...... ........ ........ ........ ........ ........ ........ ........
-    // ^^<------------------------------------------------------------------->
-    // ||                                PTS
-    // | `- key frame
-    //  `-- config packet
+    // 1CK..... ........ ........ ........ ........ ........ ........ ........
+    //  ^^<------------------------------------------------------------------>
+    //  ||                                PTS
+    //  | `- key frame
+    //   `-- config packet
 
     let start = Instant::now();
 
     loop {
-        let mut header = [0; 12];
-        file_reader.set_limit(12);
+        let mut header = [0; 16];
+        file_reader.set_limit(16);
         let r = file_reader.read(&mut header)?;
-        if r < 12 {
+        if r < 16 {
             // EOF
             break;
         }
 
-        let pts_and_flags = BigEndian::read_u64(&header[..8]);
-        let pts = pts_and_flags & 0x3F_FF_FF_FF_FF_FF_FF_FF;
-        let is_config = pts_and_flags & 0x80_00_00_00_00_00_00_00 != 0;
-        let size = BigEndian::read_u32(&header[8..12]);
+        let is_media_packet = header[4] & 0x80 != 0;
+        if is_media_packet {
+            let pts_and_flags = BigEndian::read_u64(&header[4..12]);
+            let pts = pts_and_flags & 0x1F_FF_FF_FF_FF_FF_FF_FF;
+            let is_config = pts_and_flags & 0x40_00_00_00_00_00_00_00 != 0;
+            let size = BigEndian::read_u32(&header[12..16]);
 
-        if !is_config {
-            // wait until PTS
-            let now = Instant::now();
-            let elapsed = now.duration_since(start);
-            let target = Duration::from_micros(pts);
-            if target > elapsed {
-                let to_wait = target - elapsed;
-                std::thread::sleep(to_wait);
+            if is_media_packet && !is_config {
+                // wait until PTS
+                let now = Instant::now();
+                let elapsed = now.duration_since(start);
+                let target = Duration::from_micros(pts);
+                if target > elapsed {
+                    let to_wait = target - elapsed;
+                    std::thread::sleep(to_wait);
+                }
             }
-        }
 
-        print!("\rStreaming pts={}", pts);
-        let _ = std::io::stdout().flush();
+            print!("\rStreaming pts={}", pts);
+            let _ = std::io::stdout().flush();
 
-        tcp_stream.write(&header)?;
+            tcp_stream.write(&header)?;
 
-        file_reader.set_limit(size as u64);
-        let r = std::io::copy(&mut file_reader, &mut tcp_stream)?;
-        if r < size as u64 {
-            // EOF
-            break;
+            file_reader.set_limit(size as u64);
+            let r = std::io::copy(&mut file_reader, &mut tcp_stream)?;
+            if r < size as u64 {
+                // EOF
+                break;
+            }
+        } else {
+            // Write the codec packet as is
+            tcp_stream.write(&header)?;
         }
     }
     println!("\nComplete");
