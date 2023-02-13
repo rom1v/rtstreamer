@@ -60,6 +60,9 @@ fn main() -> Result<(), StreamerError> {
 
     let start = Instant::now();
 
+    tcp_stream.read(&mut [0u8; 8])?; // consume endpoint (don't care)
+    tcp_stream.write(&[0u8])?; // sync byte
+
     let sid_and_codec_packet = [0, 0, 0, 0, b'h', b'2', b'6', b'4', 0, 0, 0, 0, 0, 0, 0, 0];
     tcp_stream.write(&sid_and_codec_packet)?;
 
