@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, ByteOrder};
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpListener};
+use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
@@ -73,12 +73,7 @@ fn main() -> Result<(), StreamerError> {
 
     let kymux_addr = parse_kymux_url(&args[2])?;
 
-    let mut tcp_stream = {
-        let listener = TcpListener::bind(kymux_addr.addr)?;
-        let (tcp_stream, addr) = listener.accept()?;
-        println!("Connection accepted from {}", addr);
-        tcp_stream
-    };
+    let mut tcp_stream = TcpStream::connect(kymux_addr.addr)?;
 
     // The "meta" header length is 12 bytes:
     // [. . . . . . . .|. . . .]. . . . . . . . . . . . . . . ...
