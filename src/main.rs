@@ -60,17 +60,17 @@ fn main() -> Result<(), StreamerError> {
     let args: Vec<_> = std::env::args().collect();
     if args.len() != 3 {
         return Err(StreamerError::SyntaxError {
-            msg: format!("Expected: {} <kymux_uri> <file>", args[0]),
+            msg: format!("Expected: {} <file> <kymux_url>", args[0]),
         });
     }
 
-    let kymux_addr = parse_kymux_url(&args[1])?;
-
     let mut file_reader = {
-        let filepath = &args[2];
+        let filepath = &args[1];
         let file = File::open(filepath)?;
         BufReader::new(file).take(0)
     };
+
+    let kymux_addr = parse_kymux_url(&args[2])?;
 
     let mut tcp_stream = {
         let listener = TcpListener::bind(kymux_addr.addr)?;
