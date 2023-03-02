@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 byteorder = "1.4.3"
 thiserror = "1.0.38"
+url = "2.3.1"

@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, ByteOrder};
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
-use std::net::TcpListener;
+use std::net::{IpAddr, SocketAddr, TcpListener};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
@@ -9,24 +9,62 @@ use thiserror::Error;
 enum StreamerError {
     #[error("Syntax error: {msg}")]
     SyntaxError { msg: String },
+    #[error("Invalid url {url}: {msg}")]
+    InvalidUrl { url: String, msg: String },
     #[error("I/O error")]
     Io(#[from] std::io::Error),
 }
 
+#[derive(Debug)]
+struct KymuxAddr {
+    addr: SocketAddr,
+    endpoint_id: u64,
+}
+
+fn parse_kymux_url(url_str: &str) -> Result<KymuxAddr, StreamerError> {
+    let url = url::Url::parse(&url_str).map_err(|e| StreamerError::InvalidUrl { url: url_str.to_string(), msg: e.to_string() })?;
+
+    if url.scheme() != "kymux" {
+        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Wrong scheme".to_string() });
+    }
+
+    let Some(host) = url.host_str() else {
+        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Missing host".to_string() });
+    };
+
+    let Ok(ip) = host.parse::<IpAddr>() else {
+        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Invalid ip".to_string() });
+    };
+
+    let Some(port) = url.port() else {
+        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Missing port".to_string() });
+    };
+
+    if url.path().len() < 2 {
+        // the first char is '/'
+        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Empty path".to_string() });
+    }
+
+    let path = &url.path()[1..];
+    let Ok(endpoint_id) = u64::from_str_radix(path, 0x10) else {
+        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: format!("Invalid endpoint: {}", path) });
+    };
+
+    Ok(KymuxAddr {
+        addr: SocketAddr::new(ip, port),
+        endpoint_id,
+    })
+}
+
 fn main() -> Result<(), StreamerError> {
-    // rtstreamer <port> <file>
     let args: Vec<_> = std::env::args().collect();
     if args.len() != 3 {
         return Err(StreamerError::SyntaxError {
-            msg: format!("Expected: {} <port> <file>", args[0]),
+            msg: format!("Expected: {} <kymux_uri> <file>", args[0]),
         });
     }
 
-    let port = args[1]
-        .parse::<u16>()
-        .map_err(|e| StreamerError::SyntaxError {
-            msg: format!("Could not parse port: '{}' ({})", args[1], e.to_string()),
-        })?;
+    let kymux_addr = parse_kymux_url(&args[1])?;
 
     let mut file_reader = {
         let filepath = &args[2];
@@ -35,7 +73,7 @@ fn main() -> Result<(), StreamerError> {
     };
 
     let mut tcp_stream = {
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", port))?;
+        let listener = TcpListener::bind(kymux_addr.addr)?;
         let (tcp_stream, addr) = listener.accept()?;
         println!("Connection accepted from {}", addr);
         tcp_stream
