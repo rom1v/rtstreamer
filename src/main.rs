@@ -92,11 +92,11 @@ fn main() -> Result<(), StreamerError> {
     // | `- key frame
     //  `-- config packet
 
-    let start = Instant::now();
-
     tcp_stream.write(&kymux_addr.endpoint_id.to_be_bytes())?;
 
     tcp_stream.read(&mut [0u8])?; // sync byte
+
+    let start = Instant::now();
 
     let sid_and_codec_packet = [0, 0, 0, 0, b'h', b'2', b'6', b'4', 0, 0, 0, 0, 0, 0, 0, 0];
     tcp_stream.write(&sid_and_codec_packet)?;
