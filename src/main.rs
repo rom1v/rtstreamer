@@ -98,7 +98,7 @@ fn main() -> Result<(), StreamerError> {
 
     let start = Instant::now();
 
-    let sid_and_codec_packet = [0, 0, 0, 0, b'h', b'2', b'6', b'4', 0, 0, 0, 0, 0, 0, 0, 0];
+    let sid_and_codec_packet = [b'h', b'2', b'6', b'4', 0, 0, 0, 0, 0, 0, 0, 0];
     tcp_stream.write(&sid_and_codec_packet)?;
 
     loop {
@@ -132,7 +132,6 @@ fn main() -> Result<(), StreamerError> {
         // header format changed due to config packet
         header[0] = 0x80 | ((header[0] & 0xC0) >> 1) | (header[0] & 0x1F);
 
-        tcp_stream.write(&[0u8; 4])?;
         tcp_stream.write(&header)?;
 
         file_reader.set_limit(size as u64);
