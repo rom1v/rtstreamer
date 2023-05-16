@@ -136,6 +136,10 @@ fn main() -> Result<(), StreamerError> {
 
         file_reader.set_limit(size as u64);
         let r = std::io::copy(&mut file_reader, &mut tcp_stream)?;
+        if !is_config {
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_micros();
+            println!("TRACE==== {{\"pts\": {}, \"rt_sent\": {}}}", pts, now);
+        }
         if r < size as u64 {
             // EOF
             break;
