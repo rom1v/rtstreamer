@@ -96,6 +96,7 @@ fn main() -> Result<(), StreamerError> {
     tcp_stream.read(&mut [0u8])?; // sync byte
 
     let start = Instant::now();
+    let mut pts_origin = None;
 
     let sid_and_codec_packet = [b'h', b'2', b'6', b'4', 0, 0, 0, 0, 0, 0, 0, 0];
     tcp_stream.write(&sid_and_codec_packet)?;
@@ -118,10 +119,14 @@ fn main() -> Result<(), StreamerError> {
             // wait until PTS
             let now = Instant::now();
             let elapsed = now.duration_since(start);
-            let target = Duration::from_micros(pts);
-            if target > elapsed {
-                let to_wait = target - elapsed;
-                std::thread::sleep(to_wait);
+            if let Some(pts_origin) = pts_origin {
+                let target = Duration::from_micros(pts - pts_origin);
+                if target > elapsed {
+                    let to_wait = target - elapsed;
+                    std::thread::sleep(to_wait);
+                }
+            } else {
+                pts_origin = Some(pts)
             }
         }
 
