@@ -18,7 +18,7 @@ enum StreamerError {
 #[derive(Debug)]
 struct KymuxAddr {
     addr: SocketAddr,
-    endpoint_id: u64,
+    endpoint_id: u16,
 }
 
 fn parse_kymux_url(url_str: &str) -> Result<KymuxAddr, StreamerError> {
@@ -46,7 +46,7 @@ fn parse_kymux_url(url_str: &str) -> Result<KymuxAddr, StreamerError> {
     }
 
     let path = &url.path()[1..];
-    let Ok(endpoint_id) = u64::from_str_radix(path, 0x10) else {
+    let Ok(endpoint_id) = u16::from_str_radix(path, 0x10) else {
         return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: format!("Invalid endpoint: {}", path) });
     };
 
