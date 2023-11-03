@@ -1,19 +1,9 @@
+use anyhow::{bail, Result};
 use byteorder::{BigEndian, ByteOrder};
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-enum StreamerError {
-    #[error("Syntax error: {msg}")]
-    SyntaxError { msg: String },
-    #[error("Invalid url {url}: {msg}")]
-    InvalidUrl { url: String, msg: String },
-    #[error("I/O error")]
-    Io(#[from] std::io::Error),
-}
 
 #[derive(Debug)]
 struct KymuxAddr {
@@ -21,33 +11,33 @@ struct KymuxAddr {
     endpoint_id: u16,
 }
 
-fn parse_kymux_url(url_str: &str) -> Result<KymuxAddr, StreamerError> {
-    let url = url::Url::parse(&url_str).map_err(|e| StreamerError::InvalidUrl { url: url_str.to_string(), msg: e.to_string() })?;
+fn parse_kymux_url(url_str: &str) -> Result<KymuxAddr> {
+    let url = url::Url::parse(&url_str)?;
 
     if url.scheme() != "kymux" {
-        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Wrong scheme".to_string() });
+        bail!("Wrong scheme in url: {url}");
     }
 
     let Some(host) = url.host_str() else {
-        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Missing host".to_string() });
+        bail!("Missing host in url: {url}");
     };
 
     let Ok(ip) = host.parse::<IpAddr>() else {
-        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Invalid ip".to_string() });
+        bail!("Invalid IP in url: {url}");
     };
 
     let Some(port) = url.port() else {
-        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Missing port".to_string() });
+        bail!("Missing port in url: {url}");
     };
 
     if url.path().len() < 2 {
         // the first char is '/'
-        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: "Empty path".to_string() });
+        bail!("Empty path in url: {url}");
     }
 
     let path = &url.path()[1..];
     let Ok(endpoint_id) = u16::from_str_radix(path, 0x10) else {
-        return Err(StreamerError::InvalidUrl { url: url_str.to_string(), msg: format!("Invalid endpoint: {}", path) });
+        bail!("Invalid endpoint: {path}");
     };
 
     Ok(KymuxAddr {
@@ -56,12 +46,10 @@ fn parse_kymux_url(url_str: &str) -> Result<KymuxAddr, StreamerError> {
     })
 }
 
-fn main() -> Result<(), StreamerError> {
+fn main() -> Result<()> {
     let args: Vec<_> = std::env::args().collect();
     if args.len() != 3 {
-        return Err(StreamerError::SyntaxError {
-            msg: format!("Expected: {} <file> <kymux_url>", args[0]),
-        });
+        bail!("Syntax error, expected: {} <file> <kymux_url>", args[0]);
     }
 
     let mut file_reader = {
