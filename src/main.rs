@@ -53,9 +53,11 @@ fn main() -> Result<()> {
     }
 
     let mut file_reader = {
-        let filepath = &args[1];
-        let file = File::open(filepath)?;
-        BufReader::new(file).take(0)
+        //let filepath = &args[1];
+        //let file = File::open(filepath)?;
+        let input_addr: SocketAddr = "127.0.0.1:1234".parse()?;
+        let tcp_input = TcpStream::connect(input_addr)?;
+        BufReader::new(tcp_input).take(0)
     };
 
     let kymux_addr = parse_kymux_url(&args[2])?;
@@ -103,20 +105,20 @@ fn main() -> Result<()> {
         let is_config = pts_and_flags & 0x80_00_00_00_00_00_00_00 != 0;
         let size = BigEndian::read_u32(&header[8..12]);
 
-        if !is_config {
-            // wait until PTS
-            let now = Instant::now();
-            let elapsed = now.duration_since(start);
-            if let Some(pts_origin) = pts_origin {
-                let target = Duration::from_micros(pts - pts_origin);
-                if target > elapsed {
-                    let to_wait = target - elapsed;
-                    std::thread::sleep(to_wait);
-                }
-            } else {
-                pts_origin = Some(pts)
-            }
-        }
+        //if !is_config {
+        //    // wait until PTS
+        //    let now = Instant::now();
+        //    let elapsed = now.duration_since(start);
+        //    if let Some(pts_origin) = pts_origin {
+        //        let target = Duration::from_micros(pts - pts_origin);
+        //        if target > elapsed {
+        //            let to_wait = target - elapsed;
+        //            std::thread::sleep(to_wait);
+        //        }
+        //    } else {
+        //        pts_origin = Some(pts)
+        //    }
+        //}
 
         print!("\rStreaming pts={}", pts);
         let _ = std::io::stdout().flush();
