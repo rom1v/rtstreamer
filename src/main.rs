@@ -1,9 +1,7 @@
 use anyhow::{bail, Result};
 use byteorder::{BigEndian, ByteOrder};
-use std::fs::File;
 use std::io::{BufReader, Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpStream};
-use std::time::{Duration, Instant};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 
 #[derive(Debug)]
 struct KymuxAddr {
@@ -49,13 +47,15 @@ fn parse_kymux_url(url_str: &str) -> Result<KymuxAddr> {
 fn main() -> Result<()> {
     let args: Vec<_> = std::env::args().collect();
     if args.len() != 3 {
-        bail!("Syntax error, expected: {} <file> <kymux_url>", args[0]);
+        bail!("Syntax error, expected: {} <tcp_port> <kymux_url>", args[0]);
     }
 
+    let input_port: u16 = args[1].parse()?;
+
     let mut file_reader = {
-        let filepath = &args[1];
-        let file = File::open(filepath)?;
-        BufReader::new(file).take(0)
+        let input_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), input_port);
+        let tcp_input = TcpStream::connect(input_addr)?;
+        BufReader::new(tcp_input).take(0)
     };
 
     let kymux_addr = parse_kymux_url(&args[2])?;
@@ -83,9 +83,6 @@ fn main() -> Result<()> {
 
     tcp_stream.read(&mut [0u8])?; // sync byte
 
-    let start = Instant::now();
-    let mut pts_origin = None;
-
     let sid_and_codec_packet = [b'o', b'p', b'u', b's', 0, 0, 0, 0, 0, 0, 0, 0];
     tcp_stream.write(&sid_and_codec_packet)?;
 
@@ -100,23 +97,8 @@ fn main() -> Result<()> {
 
         let pts_and_flags = BigEndian::read_u64(&header[..8]);
         let pts = pts_and_flags & 0x3F_FF_FF_FF_FF_FF_FF_FF;
-        let is_config = pts_and_flags & 0x80_00_00_00_00_00_00_00 != 0;
+        //let is_config = pts_and_flags & 0x80_00_00_00_00_00_00_00 != 0;
         let size = BigEndian::read_u32(&header[8..12]);
-
-        if !is_config {
-            // wait until PTS
-            let now = Instant::now();
-            let elapsed = now.duration_since(start);
-            if let Some(pts_origin) = pts_origin {
-                let target = Duration::from_micros(pts - pts_origin);
-                if target > elapsed {
-                    let to_wait = target - elapsed;
-                    std::thread::sleep(to_wait);
-                }
-            } else {
-                pts_origin = Some(pts)
-            }
-        }
 
         print!("\rStreaming pts={}", pts);
         let _ = std::io::stdout().flush();
