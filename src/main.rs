@@ -92,8 +92,7 @@ fn main() -> Result<()> {
     loop {
         let mut header = [0; 12];
         file_reader.set_limit(12);
-        let r = file_reader.read(&mut header)?;
-        if r < 12 {
+        if let Err(_) = file_reader.read_exact(&mut header) {
             // EOF
             break;
         }
