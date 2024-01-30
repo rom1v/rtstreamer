@@ -84,9 +84,12 @@ fn main() -> Result<()> {
     // | `- key frame
     //  `-- config packet
 
-    tcp_stream.write(&kymux_addr.endpoint_id.to_be_bytes())?;
+    //tcp_stream.write(&kymux_addr.endpoint_id.to_be_bytes())?;
 
-    tcp_stream.read(&mut [0u8])?; // sync byte
+    //tcp_stream.read(&mut [0u8])?; // sync byte
+
+    tcp_stream.read(&mut [0u8; 2])?;
+    tcp_stream.write(&mut [0u8])?; // sync byte
 
     let start = Instant::now();
     let mut pts_origin = None;
