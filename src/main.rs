@@ -94,7 +94,7 @@ fn main() -> Result<()> {
     let start = Instant::now();
     let mut pts_origin = None;
 
-    let sid_and_codec_packet = [b'h', b'2', b'6', b'4', 0, 0, 0, 0, 0, 0, 0, 0];
+    let sid_and_codec_packet = [b'o', b'p', b'u', b's', 0, 0, 0, 0, 0, 0, 0, 0];
     tcp_stream.write(&sid_and_codec_packet)?;
 
     loop {
